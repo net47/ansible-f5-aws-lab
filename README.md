@@ -40,7 +40,7 @@ cf_zone_id: XXXXYYYYZZZZXXXXYYYYZZZZ
   - ami-a8ddbbc7
 
 ## Some notes
-- Using `--extra-vars "env=Student01`you can setup multiple lab environments, perfect for customer trainings.
+- Using `--extra-vars "env=Student01` you can setup multiple lab environments, perfect for customer trainings.
 - The Windows Jumphost uses a special cloud-init config so enable the WinRM interface for software management. I used the `Chocolatey` Package Manager (https://chocolatey.org/) for installing software. 
 - The LAMP server configuration is done via the cloud-init file. 
 - I decided to go with the "manual" way in regards of BIG-IP deployment. The AWS SSH Key is needed to initially connect to the BIG-IP for the `admin` password change. Using the official CloudFormation templates (https://github.com/F5Networks/f5-aws-cloudformation) instead of doing it manually is also an option, you may want to use a combination of CloudFormation with some own cloud-init script. 
