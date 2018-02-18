@@ -84,6 +84,11 @@
         image: "{{ f5_ami_id }}"
         instance_type: "{{ f5_instance_type }}"
         network_interfaces: ['{{ f5_mgmt_if_id }}', '{{ f5_ext_if_id }}', '{{ f5_int_if_id }}']
+        volumes:
+        - device_name: /dev/xvda
+          volume_type: gp2
+          volume_size: 200
+          delete_on_termination: true
         wait: yes
         wait_timeout: 500
         exact_count: 1
