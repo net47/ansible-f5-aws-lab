@@ -81,7 +81,7 @@
         groups: win
       changed_when: false
 
-  - name: Setup AWS Windows Jumphost (Software Packages)
+  - name: Setup Windows Jumphost (Software Packages)
     hosts: win
     gather_facts: no
     vars_files: [ "../vars/secret.yaml" ]
