@@ -1,0 +1,112 @@
+---
+
+  - name: Setup Windows Jumphost (Base Infrastructure)
+    hosts: localhost
+    connection: local
+    gather_facts: yes
+    vars_files:
+      - ../vars/public.yaml
+      - ../vars/secret.yaml
+
+    tasks:
+
+    - name: find current Windows AMI in this region
+      ec2_ami_find:
+        aws_access_key: "{{aws_access_key}}"
+        aws_secret_key: "{{aws_secret_key}}"
+        region: "{{ target_aws_region }}"
+        platform: windows
+        virtualization_type: hvm
+        owner: amazon
+        name: Windows_Server-2012-R2_RTM-English-64Bit-Base-*
+        no_result_action: fail
+        sort: name
+        sort_order: descending
+      register: found_amis
+
+    - set_fact:
+        win_ami_id: "{{ (found_amis.results | first).ami_id  }}"
+
+    - name: ensure Windows instance is running
+      ec2:
+        aws_access_key: "{{aws_access_key}}"
+        aws_secret_key: "{{aws_secret_key}}"
+        region: "{{ target_aws_region }}"
+        image: "{{ win_ami_id }}"
+        instance_type: "{{ win_instance_type }}"
+        group_id: "{{ sg_winrm_rdp_out.group_id }}"
+        vpc_subnet_id: "{{ mgmt_subnet_id }}"
+        wait: yes
+        wait_timeout: 500
+        exact_count: 1
+        count_tag:
+          Name: "{{ env }} _ Jumphost"
+        instance_tags:
+          Name: "{{ env }} _ Jumphost"
+        user_data: "{{ lookup('template', '../templates/userdata_jumphost.j2') }}"
+      register: ec2_result
+
+    - set_fact:
+        win_instance_id: "{{ ec2_result.tagged_instances[0].id }}"
+
+    - name: allocate a new elastic IP and associate it with the Windows instance
+      ec2_eip:
+        aws_access_key: "{{aws_access_key}}"
+        aws_secret_key: "{{aws_secret_key}}"
+        region: "{{ target_aws_region }}"
+        device_id: "{{ win_instance_id }}"
+        release_on_disassociation: yes
+        reuse_existing_ip_allowed: yes
+        in_vpc: yes
+
+    - name: gather instance facts
+      ec2_instance_facts:
+        aws_access_key: "{{aws_access_key}}"
+        aws_secret_key: "{{aws_secret_key}}"
+        region: "{{ target_aws_region }}"
+        instance_ids:
+          - "{{ win_instance_id }}"
+      register: win_instance_facts
+
+    - name: wait for WinRM to answer on the instance
+      wait_for:
+        port: 5986
+        host: "{{ win_instance_facts.instances[0].public_ip_address }}"
+        timeout: 300
+
+    - name: add instance to host group
+      add_host:
+        name: "win-temp-{{ win_instance_id }}"
+        ansible_ssh_host: "{{ win_instance_facts.instances[0].public_ip_address }}"
+        groups: win
+      changed_when: false
+
+  - name: Setup AWS Windows Jumphost (Software Packages)
+    hosts: win
+    gather_facts: no
+    vars_files: [ "../vars/secret.yaml" ]
+    tasks:
+      - name: install Firefox
+        win_chocolatey:
+          name: firefox
+          state: present
+      - name: install Notepad++
+        win_chocolatey:
+          name: notepadplusplus.install
+          state: present
+      - name: install PuTTY
+        win_chocolatey:
+          name: putty.install
+          state: present
+      - name: install FileZilla
+        win_chocolatey:
+          name: filezilla
+          state: present
+      - name: install WinSCP
+        win_chocolatey:
+          name: winscp.install
+          state: present
+      - name: install Adobe Reader
+        win_chocolatey:
+          name: adobereader
+          state: present

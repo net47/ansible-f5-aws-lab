@@ -1,0 +1,21 @@
+---
+
+  - name: Create DNS Records
+    hosts: localhost
+    connection: local
+    gather_facts: yes
+    vars_files:
+      - ../vars/public.yaml
+      - ../vars/secret.yaml
+
+    tasks:
+
+    - name: add A record
+      cloudflare_dns:
+        zone: "{{ cf_zone }}"
+        record: "{{ env }}"
+        type: A
+        value: "{{ win_instance_facts.instances[0].public_ip_address }}"
+        account_email: "{{ cf_mail }}"
+        account_api_token: "{{ cf_api_key }}"
+      register: record

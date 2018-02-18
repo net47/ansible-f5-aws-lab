@@ -1,0 +1,226 @@
+---
+
+  - name: Setup AWS Base Infrastructure
+    hosts: localhost
+    connection: local
+    gather_facts: yes
+    vars_files:
+      - ../vars/public.yaml
+      - ../vars/secret.yaml
+
+    tasks:
+
+    - name: create VPC and Subnet
+      ec2_vpc_net:
+        aws_access_key: "{{aws_access_key}}"
+        aws_secret_key: "{{aws_secret_key}}"
+        name: "{{ env }} VPC"
+        state: present
+        region: "{{ target_aws_region }}"
+        cidr_block: "{{ vpc_cidr_block }}"
+        tags:
+          Name: "{{ env }} VPC"
+      register: "vpc_results"
+
+    - set_fact:
+        vpc: "{{ vpc_results.vpc.id }}"
+
+    - name: gather Internet Gateway facts
+      ec2_vpc_igw:
+        aws_access_key: "{{aws_access_key}}"
+        aws_secret_key: "{{aws_secret_key}}"
+        vpc_id: "{{ vpc }}"
+        region: "{{ target_aws_region }}"
+        state: present
+      register: "igw_results"
+
+    - set_fact:
+        igw_id: "{{ igw_results.gateway_id }}"
+
+    - name: tag the newly created internet gateway
+      ec2_tag:
+        aws_access_key: "{{aws_access_key}}"
+        aws_secret_key: "{{aws_secret_key}}"
+        resource: "{{ igw_results.gateway_id }}"
+        state: present
+        region: "{{ target_aws_region }}"
+        tags:
+          Name: "{{ env }} IGW"
+
+    - name: gather routing table facts
+      ec2_vpc_route_table_facts:
+        aws_access_key: "{{aws_access_key}}"
+        aws_secret_key: "{{aws_secret_key}}"
+        region: "{{ target_aws_region }}"
+        filters:
+          vpc-id: "{{ vpc }}"
+      register: "rt_results"
+
+    - name: modify routing table
+      ec2_vpc_route_table:
+        aws_access_key: "{{aws_access_key}}"
+        aws_secret_key: "{{aws_secret_key}}"
+        region: "{{ target_aws_region }}"
+        vpc_id: "{{ vpc }}"
+        lookup: id
+        purge_subnets: false
+        route_table_id: "{{ rt_results.route_tables[0].id }}"
+        routes:
+          - dest: 0.0.0.0/0
+            gateway_id: "{{ igw_id }}"
+
+    - name: "create subnet for F5 MGMT {{ env }}"
+      ec2_vpc_subnet:
+        aws_access_key: "{{aws_access_key}}"
+        aws_secret_key: "{{aws_secret_key}}"
+        state: present
+        region: "{{ target_aws_region }}"
+        az: "{{ target_aws_az }}"
+        vpc_id: "{{ vpc }}"
+        cidr: "{{ mgmt_subnet_cidr }}"
+        resource_tags:
+          Name: "{{ env }} _ F5 MGMT Subnet"
+      register: "mgmt_subnet"
+
+    - set_fact:
+        mgmt_subnet_id: "{{ mgmt_subnet.subnet.id }}"
+
+    - name: "create subnet for F5 External {{ env }}"
+      ec2_vpc_subnet:
+        aws_access_key: "{{aws_access_key}}"
+        aws_secret_key: "{{aws_secret_key}}"
+        state: present
+        region: "{{ target_aws_region }}"
+        az: "{{ target_aws_az }}"
+        vpc_id: "{{ vpc }}"
+        cidr: "{{ ext_subnet_cidr }}"
+        resource_tags:
+          Name: "{{ env }} _ F5 External Subnet"
+      register: "ext_subnet"
+
+    - set_fact:
+        ext_subnet_id: "{{ ext_subnet.subnet.id }}"
+
+    - name: "create subnet for F5 Internal {{ env }}"
+      ec2_vpc_subnet:
+        aws_access_key: "{{aws_access_key}}"
+        aws_secret_key: "{{aws_secret_key}}"
+        state: present
+        region: "{{ target_aws_region }}"
+        az: "{{ target_aws_az }}"
+        vpc_id: "{{ vpc }}"
+        cidr: "{{ int_subnet_cidr }}"
+        resource_tags:
+          Name: "{{ env }} _ F5 Internal Subnet"
+      register: "int_subnet"
+
+    - set_fact:
+        int_subnet_id: "{{ int_subnet.subnet.id }}"
+
+    - name: ensure 'WinRM RDP' security group is present
+      ec2_group:
+        aws_access_key: "{{aws_access_key}}"
+        aws_secret_key: "{{aws_secret_key}}"
+        name: WinRM RDP
+        description: Inbound WinRM and RDP
+        region: "{{ target_aws_region }}"
+        vpc_id: "{{ vpc }}"
+        rules:
+        - proto: tcp
+          from_port: 80
+          to_port: 80
+          cidr_ip: 0.0.0.0/0
+        - proto: tcp
+          from_port: 5986
+          to_port: 5986
+          cidr_ip: 0.0.0.0/0
+        - proto: tcp
+          from_port: 3389
+          to_port: 3389
+          cidr_ip: 0.0.0.0/0
+        rules_egress:
+        - proto: all
+          from_port: 0
+          to_port: 65535
+          cidr_ip: 0.0.0.0/0
+      register: sg_winrm_rdp_out
+
+    - name: ensure 'Linux Hosts' security group is present
+      ec2_group:
+        aws_access_key: "{{aws_access_key}}"
+        aws_secret_key: "{{aws_secret_key}}"
+        name: Linux Hosts
+        description: Inbound ICMP, SSH, HTTP, HTTPS
+        region: "{{ target_aws_region }}"
+        vpc_id: "{{ vpc }}"
+        rules:
+        - proto: icmp
+          from_port: -1
+          to_port: -1
+          cidr_ip: 0.0.0.0/0
+        - proto: tcp
+          from_port: 22
+          to_port: 22
+          cidr_ip: 0.0.0.0/0
+        - proto: tcp
+          from_port: 80
+          to_port: 80
+          cidr_ip: 0.0.0.0/0
+        - proto: tcp
+          from_port: 443
+          to_port: 443
+          cidr_ip: 0.0.0.0/0
+        rules_egress:
+        - proto: all
+          from_port: 0
+          to_port: 65535
+          cidr_ip: 0.0.0.0/0
+      register: sg_linux_hosts_out
+
+    - name: ensure 'F5 MGMT' security group is present
+      ec2_group:
+        aws_access_key: "{{aws_access_key}}"
+        aws_secret_key: "{{aws_secret_key}}"
+        name: F5 MGMT
+        description: Inbound ICMP, SSH, HTTPS
+        region: "{{ target_aws_region }}"
+        vpc_id: "{{ vpc }}"
+        rules:
+        - proto: icmp
+          from_port: -1
+          to_port: -1
+          cidr_ip: 0.0.0.0/0
+        - proto: tcp
+          from_port: 22
+          to_port: 22
+          cidr_ip: 0.0.0.0/0
+        - proto: tcp
+          from_port: 443
+          to_port: 443
+          cidr_ip: 0.0.0.0/0
+        rules_egress:
+        - proto: all
+          from_port: 0
+          to_port: 65535
+          cidr_ip: 0.0.0.0/0
+      register: sg_f5_mgmt_out
+
+    - name: ensure 'F5 Traffic Interfaces' security group is present
+      ec2_group:
+        aws_access_key: "{{aws_access_key}}"
+        aws_secret_key: "{{aws_secret_key}}"
+        name: F5 Traffic Interfaces
+        description: allow all
+        region: "{{ target_aws_region }}"
+        vpc_id: "{{ vpc }}"
+        rules:
+        - proto: all
+          from_port: 0
+          to_port: 65535
+          cidr_ip: 0.0.0.0/0
+        rules_egress:
+        - proto: all
+          from_port: 0
+          to_port: 65535
+          cidr_ip: 0.0.0.0/0
+      register: sg_f5_traffic_interfaces_out

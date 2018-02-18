@@ -1,0 +1,152 @@
+---
+
+  - name: Setup F5 BIG-IP Appliance
+    hosts: localhost
+    connection: local
+    gather_facts: yes
+    vars_files:
+      - ../vars/public.yaml
+      - ../vars/secret.yaml
+
+    tasks:
+
+    - name: create network interface 'MGMT'
+      ec2_eni:
+        aws_access_key: "{{aws_access_key}}"
+        aws_secret_key: "{{aws_secret_key}}"
+        region: "{{ target_aws_region }}"
+        device_index: 1
+        private_ip_address: "{{ f5_mgmt_ip }}"
+        subnet_id: "{{ mgmt_subnet_id }}"
+        security_groups: "{{ sg_f5_mgmt_out.group_id }}"
+        state: present
+      register: f5_mgmt_if_result
+
+    - set_fact:
+        f5_mgmt_if_id: "{{ f5_mgmt_if_result.interface.id }}"
+
+    - name: allocate a new elastic IP and associate it with the MGMT interface
+      ec2_eip:
+        aws_access_key: "{{aws_access_key}}"
+        aws_secret_key: "{{aws_secret_key}}"
+        region: "{{ target_aws_region }}"
+        device_id: "{{ f5_mgmt_if_id }}"
+        in_vpc: yes
+        release_on_disassociation: yes
+        reuse_existing_ip_allowed: yes
+      register: eip_result
+
+    - set_fact:
+        f5_mgmt_public_ip: "{{ eip_result.public_ip }}"
+
+    - name: create network interface 'External'
+      ec2_eni:
+        aws_access_key: "{{aws_access_key}}"
+        aws_secret_key: "{{aws_secret_key}}"
+        region: "{{ target_aws_region }}"
+        device_index: 1
+        private_ip_address: "{{ f5_external_ip }}"
+        secondary_private_ip_addresses:
+          - "{{ f5_vip01 }}"
+          - "{{ f5_vip02 }}"
+          - "{{ f5_vip03 }}"
+          - "{{ f5_vip04 }}"
+          - "{{ f5_vip05 }}"
+        subnet_id: "{{ ext_subnet_id }}"
+        security_groups: "{{ sg_f5_traffic_interfaces_out.group_id }}"
+        state: present
+      register: f5_ext_if_result
+
+    - set_fact:
+        f5_ext_if_id: "{{ f5_ext_if_result.interface.id }}"
+
+    - name: create network interface 'Internal'
+      ec2_eni:
+        aws_access_key: "{{aws_access_key}}"
+        aws_secret_key: "{{aws_secret_key}}"
+        region: "{{ target_aws_region }}"
+        device_index: 1
+        private_ip_address: "{{ f5_internal_ip }}"
+        subnet_id: "{{ int_subnet_id }}"
+        security_groups: "{{ sg_f5_traffic_interfaces_out.group_id }}"
+        state: present
+      register: f5_int_if_result
+
+    - set_fact:
+        f5_int_if_id: "{{ f5_int_if_result.interface.id }}"
+
+    - name: ensure F5 BIG-IP is running
+      ec2:
+        aws_access_key: "{{aws_access_key}}"
+        aws_secret_key: "{{aws_secret_key}}"
+        region: "{{ target_aws_region }}"
+        key_name: "{{ ssh_key_pair }}"
+        image: "{{ f5_ami_id }}"
+        instance_type: "{{ f5_instance_type }}"
+        network_interfaces: ['{{ f5_mgmt_if_id }}', '{{ f5_ext_if_id }}', '{{ f5_int_if_id }}']
+        wait: yes
+        wait_timeout: 500
+        exact_count: 1
+        count_tag:
+          Name: "{{ env }} _ F5"
+        instance_tags:
+          Name: "{{ env }} _ F5"
+      register: ec2_f5_result
+
+    - set_fact:
+        f5_instance_id: "{{ ec2_f5_result.tagged_instances[0].id }}"
+
+    - name: add F5 to host group
+      add_host:
+        name: "f5-temp-{{ f5_instance_id }}"
+        ansible_ssh_host: "{{ f5_mgmt_public_ip }}"
+        groups: f5
+      changed_when: false
+
+    - name: wait 6 minutes for F5 to boot
+      wait_for: timeout=360
+      delegate_to: localhost
+
+  - name: Configure F5 BIG-IP Appliance
+    hosts: f5
+    gather_facts: no
+    vars_files:
+      - ../vars/public.yaml
+      - ../vars/secret.yaml
+
+    tasks:
+
+    - name: set 'admin' password
+      raw: modify auth user admin password {{ f5_admin_password }}
+
+    - name: create VLAN 'External'
+      raw: create net vlan External interfaces add { 1.1 { untagged } }
+
+    - name: create VLAN 'Internal'
+      raw: create net vlan Internal interfaces add { 1.2 { untagged } }
+
+    - name: create Self-IP 'Self_External'
+      raw: create net self Self_External address {{ f5_external_ip }}/{{ f5_external_ip_mask }} vlan External allow-service all
+
+    - name: create Self-IP 'Self_Internal'
+      raw: create net self Self_Internal address {{ f5_internal_ip }}/{{ f5_internal_ip_mask }} vlan Internal allow-service all
+
+  - name: Clean-up
+    hosts: localhost
+    connection: local
+    gather_facts: yes
+    vars_files:
+      - ../vars/public.yaml
+      - ../vars/secret.yaml
+
+    tasks:
+
+    - name: deallocate elastic IP from MGMT interface
+      ec2_eip:
+        aws_access_key: "{{aws_access_key}}"
+        aws_secret_key: "{{aws_secret_key}}"
+        region: "{{ target_aws_region }}"
+        device_id: "{{ f5_mgmt_if_id }}"
+        ip: "{{ f5_mgmt_public_ip }}"
+        in_vpc: yes
+        state: absent

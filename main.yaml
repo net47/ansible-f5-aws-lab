@@ -1,0 +1,15 @@
+---
+
+  - name: F5 Cloud Lab
+    hosts: localhost
+    connection: local
+    gather_facts: yes
+    vars_files:
+      - vars/public.yaml
+      - vars/secret.yaml
+
+  - import_playbook: ./playbooks/base_infrastructure.yaml
+  - import_playbook: ./playbooks/jumphost.yaml
+  - import_playbook: ./playbooks/webserver.yaml
+  - import_playbook: ./playbooks/f5.yaml
+  - import_playbook: ./playbooks/dns.yaml
