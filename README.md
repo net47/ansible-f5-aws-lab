@@ -9,8 +9,8 @@ The environment consists of the following parts:
   * External (client-side) subnet
   * Internal (server-side) subnet
 * Windows Server 2012 R2 machine acting as RDP Jumphost
-* F5 BIG-IP
-* Webserver Farm with three LAMP servers 
+* F5 BIG-IP ADC
+* Webserver farm with three LAMP servers 
 
 ## Requirements
 * Ansible 2.4
@@ -18,7 +18,7 @@ The environment consists of the following parts:
 ## Usage
 1. Edit `public.yaml` variable file to your needs
 2. Create a new `secret.yaml` variable file: `ansible-vault create secret.yaml`
-```
+```yaml
 aws_access_key: XXXXYYYYZZZZ
 aws_secret_key: XXXXYYYYZZZZXXXXYYYYZZZZ
 win_initial_password: TopSecretPassword
