@@ -36,6 +36,7 @@
         instance_type: "{{ win_instance_type }}"
         group_id: "{{ sg_winrm_rdp_out.group_id }}"
         vpc_subnet_id: "{{ mgmt_subnet_id }}"
+        private_ip: "{{ win_ip }}"
         wait: yes
         wait_timeout: 500
         exact_count: 1
