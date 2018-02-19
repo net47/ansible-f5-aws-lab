@@ -31,6 +31,7 @@ f5_vip05: "172.16.20.104"
 # Windows Jumphost
 ########################
 win_instance_type: "t2.medium"
+win_ip: "172.16.10.250"
 ########################
 # Webservers
 ########################
@@ -42,5 +43,5 @@ web_ip_03: "172.16.30.103"
 ########################
 # Cloudflare
 ########################
-cf_mail: "john.doe@company.com"
-cf_zone: "company.com"
+cf_mail: "daniel.tremmel@nttsecurity.com"
+cf_zone: "nippon.io"
