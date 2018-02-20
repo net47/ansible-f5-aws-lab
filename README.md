@@ -32,7 +32,7 @@ cf_zone_id: XXXXYYYYZZZZXXXXYYYYZZZZ
 
 ## AMI Images used
 - Up-to-date Windows_Server-2012-R2_RTM-English-64Bit-Base image
-- Jetware LAMP stack
+- Jetware LAMP Stack
   - https://aws.amazon.com/marketplace/pp/B01N2PDQ6M?qid=1518913849685&sr=0-7
   - ami-800fd1ef
 - F5 Prelicensed Hourly BIGIP-13.1.0.2.0.0.6 - Best 25MBPS
@@ -40,6 +40,9 @@ cf_zone_id: XXXXYYYYZZZZXXXXYYYYZZZZ
   - ami-a8ddbbc7
 
 ## Some notes
+- Since AMI instance ID's vary from region to region, please note that the AMI's in the public.yaml variable file are applicable to EU (Frankfurt). Using London instead of Frankfurt, the followig AMI's apply:
+  - Jetware LAMP Stack: ami-4f5d4a2b
+  - F5 Prelicensed Hourly BIGIP-13.1.0.2.0.0.6 - Best 25MBPS: ami-030fea64
 - Using `--extra-vars "env=Student01` you can setup multiple lab environments, perfect for customer trainings.
 - The Windows Jumphost uses a special cloud-init config to enable the WinRM interface for software management. I used the `Chocolatey` Package Manager (https://chocolatey.org/) for installing software. 
 - The LAMP server configuration is done via the cloud-init file. 
