@@ -41,8 +41,8 @@ cf_zone_id: XXXXYYYYZZZZXXXXYYYYZZZZ
 
 ## Some notes
 - Since AMI instance ID's vary from region to region, please note that the AMI's in the public.yaml variable file are applicable to EU (Frankfurt). Using London instead of Frankfurt, the followig AMI's apply:
-  - Jetware LAMP Stack: `ami-4f5d4a2b`
-  - F5 Prelicensed Hourly BIGIP-13.1.0.2.0.0.6 - Best 25MBPS: `ami-030fea64`
+  - Jetware LAMP Stack: `ami-4f5d4a2b`
+  - F5 Prelicensed Hourly BIGIP-13.1.0.2.0.0.6 - Best 25MBPS: `ami-030fea64`
 - Make sure you use the correct SSH key pair for the correspondig region (see `group_vars/f5.yaml`).
 - Using `--extra-vars "env=Student01` you can setup multiple lab environments, perfect for customer trainings.
 - The Windows Jumphost uses a special cloud-init config to enable the WinRM interface for software management. I used the `Chocolatey` Package Manager (https://chocolatey.org/) for installing software. 
