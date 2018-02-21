@@ -4,7 +4,7 @@ Setting up a cloud lab environment (Amazon Web Services) using Ansible :sunglass
 The purpose of this Ansible playbook is to setup a ready-to-use cloud lab environment for F5 BIG-IP training and development. A client connects to the RDP Jumphost (DNS record automatically set via Cloudflare API), from where he can access both the F5 BIG-IP as well as the Webserver farm. 
 
 The environment consists of the following parts:
-* Virtual Private Cloud (VPC) with three subnets
+* Virtual Private Cloud (VPC) in the EU (Frankfurt) region with three subnets
   * Management subnet
   * External (client-side) subnet
   * Internal (server-side) subnet
