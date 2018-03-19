@@ -44,7 +44,7 @@ cf_zone_id: XXXXYYYYZZZZXXXXYYYYZZZZ
   - Jetware LAMP Stack: `ami-4f5d4a2b`
   - F5 Prelicensed Hourly BIGIP-13.1.0.2.0.0.6 - Best 25MBPS: `ami-030fea64`
 - Make sure you use the correct SSH key pair for the correspondig region (see `group_vars/f5.yaml`).
-- Using `--extra-vars "env=Student01` you can setup multiple lab environments, perfect for customer trainings.
+- Using `--extra-vars "env=Student01"` you can setup multiple lab environments, perfect for customer trainings.
 - The Windows Jumphost uses a special cloud-init config to enable the WinRM interface for software management. I used the `Chocolatey` Package Manager (https://chocolatey.org/) for installing software. 
 - The LAMP server configuration is done via the cloud-init file. 
 - I decided to go with the "manual" way in regards of BIG-IP deployment. The AWS SSH Key is needed to initially connect to the BIG-IP for the `admin` password change. Using the official CloudFormation templates (https://github.com/F5Networks/f5-aws-cloudformation) instead of doing it manually is also an option, you may want to use a combination of CloudFormation with some own cloud-init script.  
